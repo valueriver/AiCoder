@@ -14,7 +14,6 @@ CORS(app)
 WORKER_DIRECTORY = os.path.join(os.getcwd(), "worker")
 HISTORY_DIR = os.path.join(os.getcwd(), 'chats')
 
-# 确保历史记录目录存在
 os.makedirs(HISTORY_DIR, exist_ok=True)
 
 def get_history_file(conversation_id):
