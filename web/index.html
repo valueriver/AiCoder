@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI聊天界面</title>
+    <script src="./js/tailwind.js"></script>
+    <script src="./js/vue.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex justify-center items-center">
+    <div id="app" class="container max-w-2xl w-full mx-auto p-4">
+        <main v-if="!apiConfigured" class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">配置 API</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="apiKey" class="block text-sm font-medium text-gray-700">API Key</label>
+                    <input id="apiKey" v-model="apiKey" type="password" class="mt-1 block w-full p-2 border rounded" placeholder="输入 API Key">
+                </div>
+                <div>
+                    <label for="apiUrl" class="block text-sm font-medium text-gray-700">API URL</label>
+                    <input id="apiUrl" v-model="apiUrl" type="text" class="mt-1 block w-full p-2 border rounded" placeholder="输入 API URL">
+                </div>
+                <button @click="configureApi" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                    确认并开始聊天
+                </button>
+            </div>
+        </main>
+
+        <div v-else class="space-y-4">
+            <div class="bg-white rounded-lg shadow p-4 text-center">
+                <p class="text-sm text-gray-600">对话ID: {{ conversationId }}</p>
+            </div>
+
+            <main class="bg-white rounded-lg shadow overflow-hidden flex flex-col" style="height: 70vh;">
+                <div class="flex-grow overflow-auto p-4" ref="chatContainer">
+                    <div v-for="message in messages" :key="message.id" class="mb-4">
+                        <div :class="{
+                            'bg-blue-100 text-blue-800 p-3 rounded-lg max-w-3/4 ml-auto': message.role === 'user',
+                            'bg-gray-100 text-gray-800 p-3 rounded-lg max-w-3/4': message.role === 'assistant'
+                        }">
+                            <p class="font-bold mb-1">{{ message.role === 'user' ? '👤 You' : '🤖 AI' }}</p>
+                            <p>{{ message.content }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-gray-50 border-t">
+                    <div class="flex">
+                        <input v-model="userInput" @keyup.enter="sendMessage" 
+                               class="flex-grow p-2 border rounded-l focus:outline-none focus:ring-2 focus:ring-blue-300" 
+                               placeholder="输入您的消息...">
+                        <button @click="sendMessage" 
+                                class="bg-blue-500 text-white px-4 py-2 rounded-r hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                            发送
+                        </button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script>
+        Vue.createApp({
+            data() {
+                return {
+                    messages: [],
+                    userInput: '',
+                    conversationId: '',
+                    apiKey: '',
+                    apiUrl: '',
+                    apiConfigured: false
+                };
+            },
+            methods: {
+                generateConversationId() {
+                    const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '');
+                    const randomString = Math.random().toString(36).substring(2, 8);
+                    return `chat_${timestamp}_${randomString}`;
+                },
+                configureApi() {
+                    if (this.apiKey.trim() && this.apiUrl.trim()) {
+                        this.apiConfigured = true;
+                        this.conversationId = this.generateConversationId();
+                    } else {
+                        alert('请填写 API Key 和 API URL');
+                    }
+                },
+                sendMessage() {
+                    if (this.userInput.trim() === '') return;
+                    
+                    const userMessage = {
+                        role: 'user',
+                        content: this.userInput,
+                        id: Date.now()
+                    };
+                    this.messages.push(userMessage);
+                    
+                    fetch('/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: this.userInput,
+                            conversationId: this.conversationId,
+                            apiKey: this.apiKey,
+                            apiUrl: this.apiUrl
+                        }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        this.messages.push({
+                            role: 'assistant',
+                            content: data.message,
+                            id: Date.now()
+                        });
+                        this.$nextTick(() => {
+                            this.scrollToBottom();
+                        });
+                    })
+                    .catch(error => console.error('错误:', error));
+                    
+                    this.userInput = '';
+                },
+                scrollToBottom() {
+                    const container = this.$refs.chatContainer;
+                    if (container) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
